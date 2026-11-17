@@ -2,7 +2,7 @@
 <html lang="tr">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover" />
   <title>Karaciğer (Hepar) Anatomi Anki</title>
   <script src="https://cdn.tailwindcss.com/3.4.17"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -48,6 +48,37 @@
     .diff-ok { color: #34d399; font-weight: 700; }
     .diff-err { color: #fb7185; background: rgba(244, 63, 94, 0.22); border-radius: 3px; padding: 0 2px; text-decoration: underline wavy #fb7185; }
     .diff-miss { color: #fbbf24; background: rgba(245, 158, 11, 0.2); border-radius: 3px; padding: 0 2px; }
+  
+    @media (max-width: 640px) {
+      .occlusion-mask { font-size: 10px !important; border-radius: 4px; }
+      #answer-input { font-size: 16px !important; } /* iOS/Android otomatik zoom engelleme */
+    }
+    #image-stage { touch-action: pan-x pan-y pinch-zoom; }
+  
+    /* --- iOS SAFARI ÖZEL OPTİMİZASYONU (Android düzenini etkilemez) --- */
+    @supports (-webkit-touch-callout: none) {
+      body {
+        min-height: 100dvh;
+        padding-bottom: env(safe-area-inset-bottom);
+        -webkit-text-size-adjust: 100%;
+        overscroll-behavior-y: none;
+      }
+      /* Safari'nin input ve select odaklanmasında yaptığı otomatik zoom'u tamamen kapat */
+      input[type="text"],
+      input[type="search"],
+      select,
+      textarea {
+        font-size: 16px !important;
+      }
+      /* Hızlı dokunuşlarda çift-dokunma (double-tap) zoom'unu engelle */
+      button, label, select, input {
+        touch-action: manipulation;
+      }
+      /* iOS Safari iç kaydırma akıcılığı */
+      .overflow-auto, .overflow-x-auto {
+        -webkit-overflow-scrolling: touch;
+      }
+    }
   </style>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col antialiased">
@@ -157,7 +188,7 @@
           <span id="image-title" class="truncate">Görünüm</span>
           <span class="hidden sm:inline text-slate-500"><span id="badge-stage">Aşama 1</span> · <span id="badge-source">Atlas</span></span>
         </div>
-        <div class="relative w-full overflow-auto max-h-[76vh] rounded-xl bg-white border border-slate-800">
+        <div class="relative w-full overflow-auto max-h-[45vh] sm:max-h-[55vh] lg:max-h-[76vh] rounded-xl bg-white border border-slate-800 shadow-inner">
           <div id="image-stage" class="relative w-full select-none origin-top-left">
             <img id="specimen-img" src="" alt="Karaciğer Anatomisi" class="w-full h-auto block pointer-events-none" />
             <div id="masks-layer" class="absolute inset-0"></div>
@@ -166,7 +197,7 @@
       </section>
 
       <!-- SAĞ: Sade Soru & Cevap Alanı -->
-      <section class="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-xl p-5 flex flex-col gap-4">
+      <section class="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-xl p-3.5 sm:p-5 flex flex-col gap-3 sm:gap-4">
         <div class="flex items-center justify-between gap-2">
           <div class="flex items-center gap-2">
             <span id="card-badge" class="text-xs font-bold px-2 py-0.5 rounded bg-amber-500/20 text-amber-300">#1</span>
@@ -174,8 +205,8 @@
             <span id="card-mastery-badge" class="hidden">Yeni</span>
           </div>
           <div class="flex items-center gap-1">
-            <button id="btn-prev" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-xs text-slate-200" title="Önceki">←</button>
-            <button id="btn-next" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-xs text-slate-200" title="Sonraki">→</button>
+            <button id="btn-prev" class="min-w-[44px] min-h-[38px] px-3 py-1.5 rounded-lg bg-slate-800 active:bg-slate-700 text-sm font-bold text-slate-200" title="Önceki">←</button>
+            <button id="btn-next" class="min-w-[44px] min-h-[38px] px-3 py-1.5 rounded-lg bg-slate-800 active:bg-slate-700 text-sm font-bold text-slate-200" title="Sonraki">→</button>
           </div>
         </div>
 
@@ -189,6 +220,12 @@
             </div>
           </div>
           <div id="alt-views-chips" class="flex flex-wrap gap-1.5"></div>
+        </div>
+
+                <!-- Ok & Etiket Uyarı Şeridi -->
+        <div id="arrow-warning-box" class="hidden rounded-lg border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-xs text-rose-200 flex items-start gap-2">
+          <span class="text-rose-400 font-bold mt-0.5">⚠️</span>
+          <div id="arrow-warning-text" class="leading-relaxed"></div>
         </div>
 
         <form id="answer-form" class="flex flex-col gap-3">
@@ -205,7 +242,7 @@
               <button type="button" id="btn-hint" class="text-amber-300 hover:text-amber-200 font-medium">İpucu (H) — 1/2</button>
               <button type="button" id="btn-reveal" class="text-slate-400 hover:text-white">Cevabı Göster</button>
             </div>
-            <button type="submit" class="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs transition">
+            <button type="submit" class="min-h-[42px] px-5 py-2 rounded-lg bg-amber-500 active:bg-amber-400 text-slate-950 font-bold text-xs sm:text-sm transition">
               Kontrol Et
             </button>
           </div>
@@ -230,19 +267,19 @@
 
         <!-- Anki SRS -->
         <div id="srs-panel" class="hidden pt-2 border-t border-slate-800 grid grid-cols-4 gap-2">
-          <button data-q="1" class="srs-btn flex flex-col items-center py-2 px-1 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 transition">
+          <button data-q="1" class="srs-btn min-h-[48px] flex flex-col items-center justify-center py-2 px-1 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 transition">
             <span class="text-xs font-semibold">Tekrar</span>
             <span class="text-[10px] opacity-75">&lt;1 dk</span>
           </button>
-          <button data-q="2" class="srs-btn flex flex-col items-center py-2 px-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 transition">
+          <button data-q="2" class="srs-btn min-h-[48px] flex flex-col items-center justify-center py-2 px-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 transition">
             <span class="text-xs font-semibold">Zor</span>
             <span class="text-[10px] opacity-75" id="lbl-hard">12 sa</span>
           </button>
-          <button data-q="3" class="srs-btn flex flex-col items-center py-2 px-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 transition">
+          <button data-q="3" class="srs-btn min-h-[48px] flex flex-col items-center justify-center py-2 px-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 transition">
             <span class="text-xs font-semibold">İyi</span>
             <span class="text-[10px] opacity-75" id="lbl-good">1 gün</span>
           </button>
-          <button data-q="4" class="srs-btn flex flex-col items-center py-2 px-1 rounded-lg bg-sky-500/15 hover:bg-sky-500/25 text-sky-300 transition">
+          <button data-q="4" class="srs-btn min-h-[48px] flex flex-col items-center justify-center py-2 px-1 rounded-lg bg-sky-500/15 hover:bg-sky-500/25 text-sky-300 transition">
             <span class="text-xs font-semibold">Kolay</span>
             <span class="text-[10px] opacity-75" id="lbl-easy">4 gün</span>
           </button>
@@ -2610,5 +2647,117 @@ function init() {
 
 window.addEventListener("DOMContentLoaded", init);
 </script>
+
+// --- OTOMATİK OK & ETİKET KOORDİNAT DENETLEYİCİ ---
+function auditCardArrows() {
+  if (typeof CARDS === 'undefined') return [];
+  const issues = [];
+  const byImage = {};
+  CARDS.forEach(c => {
+    const imgKey = c.img || c.image || c.g;
+    if (!byImage[imgKey]) byImage[imgKey] = [];
+    byImage[imgKey].push(c);
+  });
+
+  Object.keys(byImage).forEach(imgKey => {
+    const list = byImage[imgKey];
+    for (let i = 0; i < list.length; i++) {
+      const a = list[i];
+      const boxA = a.box || a.rect || a;
+      const x1 = Number(boxA.x ?? boxA.left ?? 0);
+      const y1 = Number(boxA.y ?? boxA.top ?? 0);
+      const w1 = Number(boxA.w ?? boxA.width ?? 0);
+      const h1 = Number(boxA.h ?? boxA.height ?? 0);
+      const warnings = [];
+
+      // Sınır taşması veya aşırı küçük/büyük ok kutusu kontrolü
+      if (x1 < 0 || y1 < 0 || (x1 + w1) > 100.5 || (y1 + h1) > 100.5) {
+        warnings.push("Etiket kutusu görsel sınırından taşıyor; ok ucu tam görünmeyebilir.");
+      }
+      if (w1 > 0 && h1 > 0 && (w1 < 1.2 || h1 < 1.0)) {
+        warnings.push("Etiket alanı çok dar; ok çizgisi ile metin birbirine girmiş olabilir.");
+      }
+
+      // Diğer maskelerle çakışma kontrolü (üst üste binen oklar/etiketler)
+      for (let j = 0; j < list.length; j++) {
+        if (i === j) continue;
+        const b = list[j];
+        const boxB = b.box || b.rect || b;
+        const x2 = Number(boxB.x ?? boxB.left ?? 0);
+        const y2 = Number(boxB.y ?? boxB.top ?? 0);
+        const w2 = Number(boxB.w ?? boxB.width ?? 0);
+        const h2 = Number(boxB.h ?? boxB.height ?? 0);
+
+        const overlapX = Math.max(0, Math.min(x1 + w1, x2 + w2) - Math.max(x1, x2));
+        const overlapY = Math.max(0, Math.min(y1 + h1, y2 + h2) - Math.max(y1, y2));
+        const areaA = w1 * h1;
+        if (areaA > 0 && (overlapX * overlapY) / areaA > 0.25) {
+          const otherName = b.term || b.answer || b.la || ("#" + (b.id || j+1));
+          warnings.push(`Bu etiket "${otherName}" maskesiyle çakışıyor; ok hedefini kontrol et.`);
+          break;
+        }
+      }
+
+      // Notlar içinde yazar tarafından düşülmüş ok/görsel uyarısı varsa yakala
+      const noteText = (a.notes || a.note || a.hint || "") + " " + (a.term || a.la || "");
+      if (/hatalı|yanlış|dikkat|karış|ok\s|ters|eksik|kaymış/i.test(noteText)) {
+        warnings.push("Notlarda bu yapının ok yönü/konumuyla ilgili özel uyarı mevcut.");
+      }
+
+      if (warnings.length > 0) {
+        a._arrowWarning = warnings.join(" ");
+        issues.push({ id: a.id || (i+1), img: imgKey, term: a.term || a.la || a.answer, warning: a._arrowWarning });
+      }
+    }
+  });
+  return issues;
+}
+
+const _detectedArrowIssues = auditCardArrows();
+
+// Kart render fonksiyonuna uyarı kutusunu bağla (MutationObserver ile güvenli kanca)
+(function attachWarningObserver() {
+  const badgeEl = document.getElementById("card-badge");
+  const warnBox = document.getElementById("arrow-warning-box");
+  const warnText = document.getElementById("arrow-warning-text");
+  if (!badgeEl || !warnBox || !warnText) return;
+
+  const updateWarning = () => {
+    const rawId = badgeEl.textContent.replace("#", "").trim();
+    const card = (typeof CARDS !== 'undefined') ? CARDS.find(c => String(c.id) === rawId) : null;
+    if (card && card._arrowWarning) {
+      warnText.textContent = "Ok/Gösterim Notu: " + card._arrowWarning;
+      warnBox.classList.remove("hidden");
+    } else {
+      warnBox.classList.add("hidden");
+    }
+  };
+
+  const obs = new MutationObserver(updateWarning);
+  obs.observe(badgeEl, { childList: true, characterData: true, subtree: true });
+  setTimeout(updateWarning, 300);
+})();
+</script>
+
+
+// --- iOS SAFARI OTOMATİK ODAKLANMA & ZOOM KORUMASI ---
+(function protectIosSafariFocus() {
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+                (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  if (!isIOS) return;
+
+  const ansInput = document.getElementById("answer-input");
+  if (ansInput) {
+    const origFocus = ansInput.focus.bind(ansInput);
+    ansInput.focus = function(opts) {
+      // Yalnızca kullanıcı doğrudan dokunduğunda odaklan, programatik geçişlerde klavyeyi fırlatma
+      if (document.activeElement === ansInput) {
+        origFocus(Object.assign({ preventScroll: true }, opts));
+      }
+    };
+  }
+})();
+</script>
+
 </body>
 </html>
