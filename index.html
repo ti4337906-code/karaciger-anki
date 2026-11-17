@@ -2653,10 +2653,27 @@ function init() {
 window.addEventListener("DOMContentLoaded", init);
 </script>
 
-// --- OTOMATİK OK & ETİKET KOORDİNAT DENETLEYİCİ ---
-function auditCardArrows() {
-  if (typeof CARDS === 'undefined') return [];
-  const issues = [];
+<script>
+// 1. iOS Safari Otomatik Odaklanma Koruması
+(function protectIosSafariFocus() {
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+                (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  if (!isIOS) return;
+
+  const ansInput = document.getElementById("answer-input");
+  if (ansInput) {
+    const origFocus = ansInput.focus.bind(ansInput);
+    ansInput.focus = function(opts) {
+      if (document.activeElement === ansInput) {
+        origFocus(Object.assign({ preventScroll: true }, opts));
+      }
+    };
+  }
+})();
+
+// 2. Ok & Etiket Koordinat Uyarı Denetleyicisi
+(function initArrowAudit() {
+  if (typeof CARDS === 'undefined') return;
   const byImage = {};
   CARDS.forEach(c => {
     const imgKey = c.img || c.image || c.g;
@@ -2675,7 +2692,6 @@ function auditCardArrows() {
       const h1 = Number(boxA.h ?? boxA.height ?? 0);
       const warnings = [];
 
-      // Sınır taşması veya aşırı küçük/büyük ok kutusu kontrolü
       if (x1 < 0 || y1 < 0 || (x1 + w1) > 100.5 || (y1 + h1) > 100.5) {
         warnings.push("Etiket kutusu görsel sınırından taşıyor; ok ucu tam görünmeyebilir.");
       }
@@ -2683,7 +2699,6 @@ function auditCardArrows() {
         warnings.push("Etiket alanı çok dar; ok çizgisi ile metin birbirine girmiş olabilir.");
       }
 
-      // Diğer maskelerle çakışma kontrolü (üst üste binen oklar/etiketler)
       for (let j = 0; j < list.length; j++) {
         if (i === j) continue;
         const b = list[j];
@@ -2697,13 +2712,12 @@ function auditCardArrows() {
         const overlapY = Math.max(0, Math.min(y1 + h1, y2 + h2) - Math.max(y1, y2));
         const areaA = w1 * h1;
         if (areaA > 0 && (overlapX * overlapY) / areaA > 0.25) {
-          const otherName = b.term || b.answer || b.la || ("#" + (b.id || j+1));
+          const otherName = b.term || b.answer || b.la || ("#" + (b.id || j + 1));
           warnings.push(`Bu etiket "${otherName}" maskesiyle çakışıyor; ok hedefini kontrol et.`);
           break;
         }
       }
 
-      // Notlar içinde yazar tarafından düşülmüş ok/görsel uyarısı varsa yakala
       const noteText = (a.notes || a.note || a.hint || "") + " " + (a.term || a.la || "");
       if (/hatalı|yanlış|dikkat|karış|ok\s|ters|eksik|kaymış/i.test(noteText)) {
         warnings.push("Notlarda bu yapının ok yönü/konumuyla ilgili özel uyarı mevcut.");
@@ -2711,17 +2725,10 @@ function auditCardArrows() {
 
       if (warnings.length > 0) {
         a._arrowWarning = warnings.join(" ");
-        issues.push({ id: a.id || (i+1), img: imgKey, term: a.term || a.la || a.answer, warning: a._arrowWarning });
       }
     }
   });
-  return issues;
-}
 
-const _detectedArrowIssues = auditCardArrows();
-
-// Kart render fonksiyonuna uyarı kutusunu bağla (MutationObserver ile güvenli kanca)
-(function attachWarningObserver() {
   const badgeEl = document.getElementById("card-badge");
   const warnBox = document.getElementById("arrow-warning-box");
   const warnText = document.getElementById("arrow-warning-text");
@@ -2729,7 +2736,7 @@ const _detectedArrowIssues = auditCardArrows();
 
   const updateWarning = () => {
     const rawId = badgeEl.textContent.replace("#", "").trim();
-    const card = (typeof CARDS !== 'undefined') ? CARDS.find(c => String(c.id) === rawId) : null;
+    const card = CARDS.find(c => String(c.id) === rawId);
     if (card && card._arrowWarning) {
       warnText.textContent = "Ok/Gösterim Notu: " + card._arrowWarning;
       warnBox.classList.remove("hidden");
@@ -2738,34 +2745,11 @@ const _detectedArrowIssues = auditCardArrows();
     }
   };
 
-  const obs = new MutationObserver(updateWarning);
-  obs.observe(badgeEl, { childList: true, characterData: true, subtree: true });
-  setTimeout(updateWarning, 300);
+  new MutationObserver(updateWarning).observe(badgeEl, { childList: true, characterData: true, subtree: true });
+  setTimeout(updateWarning, 250);
 })();
-</script>
 
-
-// --- iOS SAFARI OTOMATİK ODAKLANMA & ZOOM KORUMASI ---
-(function protectIosSafariFocus() {
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-                (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-  if (!isIOS) return;
-
-  const ansInput = document.getElementById("answer-input");
-  if (ansInput) {
-    const origFocus = ansInput.focus.bind(ansInput);
-    ansInput.focus = function(opts) {
-      // Yalnızca kullanıcı doğrudan dokunduğunda odaklan, programatik geçişlerde klavyeyi fırlatma
-      if (document.activeElement === ansInput) {
-        origFocus(Object.assign({ preventScroll: true }, opts));
-      }
-    };
-  }
-})();
-</script>
-
-
-// --- HIZLANDIRILMIŞ TEKRAR MODU (TUR BAZLI BENZERSİZ YAPI ALGORİTMASI) ---
+// 3. Hızlandırılmış Tekrar Modu (Tur Bazlı Benzersiz Yapı Algoritması)
 (function initFastUniqueReviewMode() {
   const toggleFast = document.getElementById("toggle-fast-review");
   const toggleSame = document.getElementById("toggle-same-structure");
@@ -2778,20 +2762,15 @@ const _detectedArrowIssues = auditCardArrows();
 
   let fastActive = false;
   let roundNumber = 1;
-  let roundQueue = [];       // Mevcut turdaki seçili kartların ID listesi
+  let roundQueue = [];
   let roundIndex = 0;
-  const usedIdsByStruct = {}; // Yapı başına önceki turlarda gösterilen kart ID'leri
+  const usedIdsByStruct = {};
 
-  // Yapı adını normalize et (aynı yapıları gruplamak için)
   function getStructureKey(card) {
     const raw = (card.term || card.la || card.answer || card.name || "").toLowerCase();
-    return raw
-      .replace(/\(.*?\)/g, "") // Parantez içi açıklamaları çıkar
-      .replace(/[^a-zçğıöşü0-9]/g, "")
-      .trim() || ("id_" + card.id);
+    return raw.replace(/\(.*?\)/g, "").replace(/[^a-zçğıöşü0-9]/g, "").trim() || ("id_" + card.id);
   }
 
-  // Aktif aşama/öncelik/görsel filtrelerine uyan kart havuzunu al
   function getEligibleCards() {
     const stageBtn = document.querySelector(".stage-btn.bg-amber-500");
     const stageVal = stageBtn ? stageBtn.getAttribute("data-stage") : "all";
@@ -2801,12 +2780,8 @@ const _detectedArrowIssues = auditCardArrows();
     const viewVal = viewEl ? viewEl.value : "all";
 
     return CARDS.filter(c => {
-      if (stageVal && stageVal !== "all" && stageVal !== "due") {
-        if (String(c.stage) !== String(stageVal)) return false;
-      }
-      if (prioVal && prioVal !== "all") {
-        if (String(c.priority) !== String(prioVal)) return false;
-      }
+      if (stageVal && stageVal !== "all" && stageVal !== "due" && String(c.stage) !== String(stageVal)) return false;
+      if (prioVal && prioVal !== "all" && String(c.priority) !== String(prioVal)) return false;
       if (viewVal && viewVal !== "all") {
         const imgKey = c.img || c.image || c.g;
         if (String(imgKey) !== String(viewVal)) return false;
@@ -2815,7 +2790,6 @@ const _detectedArrowIssues = auditCardArrows();
     });
   }
 
-  // Yeni tur oluştur: Her benzersiz yapıdan rastgele 1 görsel seç (önceki turda görülmemiş olana öncelik ver)
   function buildNewRound(resetHistory = false) {
     if (resetHistory) {
       roundNumber = 1;
@@ -2835,10 +2809,8 @@ const _detectedArrowIssues = auditCardArrows();
       const candidates = groups[key];
       if (!usedIdsByStruct[key]) usedIdsByStruct[key] = new Set();
 
-      // Önceki turlarda henüz gösterilmemiş görselleri filtrele
       let unseen = candidates.filter(c => !usedIdsByStruct[key].has(c.id));
       if (unseen.length === 0) {
-        // Tüm görselleri en az 1 kez görüldüyse geçmişi sıfırla ve yeniden havuza al
         usedIdsByStruct[key].clear();
         unseen = candidates;
       }
@@ -2848,7 +2820,6 @@ const _detectedArrowIssues = auditCardArrows();
       selected.push(chosen.id);
     });
 
-    // Fisher-Yates karıştırma (rastgele sıra)
     for (let i = selected.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [selected[i], selected[j]] = [selected[j], selected[i]];
@@ -2858,33 +2829,21 @@ const _detectedArrowIssues = auditCardArrows();
     roundIndex = 0;
   }
 
-  // Seçili karta doğrudan geçiş yap (Mevcut uygulamanın kart yükleme mekanizmasını tetikler)
   function jumpToCardId(cardId) {
-    const targetCard = CARDS.find(c => c.id === cardId);
-    if (!targetCard) return;
-
-    // 1. Önce "Tüm Kartlar" gridindeki ilgili karta tıklamayı dene (en temiz state geçişi)
-    const browseCards = document.querySelectorAll("#browse-grid [data-id], #memory-table-body [data-id]");
-    for (const el of browseCards) {
-      if (String(el.getAttribute("data-id")) === String(cardId)) {
-        el.click();
-        break;
+    // Mevcut kart rozetindeki ID hedef ID olana kadar veya doğrudan tüm kartlar listesinden tıkla
+    const targetBtn = document.querySelector(`#browse-grid [data-id="${cardId}"], #memory-table-body [data-id="${cardId}"]`);
+    if (targetBtn) {
+      targetBtn.click();
+    } else {
+      // Yedek geçiş: "Tüm Kartlar" sekmesini arka planda tetiklemeden mevcut kartı ilerlet
+      const badgeEl = document.getElementById("card-badge");
+      let safety = 0;
+      while (badgeEl && badgeEl.textContent.replace("#", "").trim() !== String(cardId) && safety < CARDS.length + 2) {
+        if (typeof nextCard === "function") nextCard();
+        else if (btnNext) btnNext.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        safety++;
       }
     }
-
-    // 2. Alternatif olarak global state değişkenleri üzerinden doğrudan yükle
-    if (typeof currentCard !== "undefined" && currentCard && currentCard.id !== cardId) {
-      const idxInAll = CARDS.findIndex(c => c.id === cardId);
-      if (typeof filteredCards !== "undefined" && Array.isArray(filteredCards)) {
-        const fIdx = filteredCards.findIndex(c => c.id === cardId);
-        if (fIdx !== -1 && typeof currentIndex !== "undefined") {
-          currentIndex = fIdx;
-          if (typeof renderCard === "function") renderCard();
-          else if (typeof loadCard === "function") loadCard(fIdx);
-        }
-      }
-    }
-
     updateFastUI();
   }
 
@@ -2893,7 +2852,7 @@ const _detectedArrowIssues = auditCardArrows();
       if (roundBadge) roundBadge.classList.add("hidden");
       return;
     }
-    if (roundBadge) {
+    if (roundBadge && roundQueue.length > 0) {
       roundBadge.textContent = `⚡ Tur ${roundNumber} · Benzersiz (${roundIndex + 1}/${roundQueue.length})`;
       roundBadge.classList.remove("hidden");
     }
@@ -2910,7 +2869,7 @@ const _detectedArrowIssues = auditCardArrows();
       roundNumber++;
       buildNewRound(false);
       if (typeof showToast === "function") {
-        showToast(`🎉 Tur ${roundNumber - 1} tamamlandı! Tur ${roundNumber} başladı (yapılar farklı görsellerden seçildi).`);
+        showToast(`🎉 Tur ${roundNumber - 1} bitti! Tur ${roundNumber} başladı (yapılar farklı görsellerden seçildi).`);
       }
     } else if (roundIndex < 0) {
       roundIndex = 0;
@@ -2919,16 +2878,13 @@ const _detectedArrowIssues = auditCardArrows();
     jumpToCardId(roundQueue[roundIndex]);
   }
 
-  // Checkbox aç/kapat dinleyicisi
   toggleFast.addEventListener("change", () => {
     fastActive = toggleFast.checked;
     if (fastActive) {
-      // "Aynı Yapı Art Arda" modu açıksa çakışmaması için kapat
       if (toggleSame && toggleSame.checked) {
         toggleSame.checked = false;
         toggleSame.dispatchEvent(new Event("change"));
       }
-      // Filtrelerin "Tümü" olduğundan emin ol ki tüm 133 kartlık havuzdan benzersiz seçim yapılabilsin
       const viewSel = document.getElementById("view-select");
       if (viewSel && viewSel.value !== "all") {
         viewSel.value = "all";
@@ -2956,10 +2912,9 @@ const _detectedArrowIssues = auditCardArrows();
     });
   }
 
-  // Sonraki / Önceki butonlarını ve SRS puanlama butonlarını yakala
   if (btnNext) {
     btnNext.addEventListener("click", (e) => {
-      if (!fastActive) return;
+      if (!fastActive || !e.isTrusted) return;
       e.stopImmediatePropagation();
       stepFast(1);
     }, true);
@@ -2967,24 +2922,19 @@ const _detectedArrowIssues = auditCardArrows();
 
   if (btnPrev) {
     btnPrev.addEventListener("click", (e) => {
-      if (!fastActive) return;
+      if (!fastActive || !e.isTrusted) return;
       e.stopImmediatePropagation();
       stepFast(-1);
     }, true);
   }
 
-  // Anki SRS butonlarına (Tekrar / Zor / İyi / Kolay) basıldığında otomatik olarak turdaki sıradaki benzersiz yapıya geç
   document.addEventListener("click", (e) => {
     if (!fastActive) return;
-    const srsBtn = e.target.closest(".srs-btn");
-    if (srsBtn) {
-      setTimeout(() => {
-        stepFast(1);
-      }, 60);
+    if (e.target.closest(".srs-btn")) {
+      setTimeout(() => stepFast(1), 60);
     }
   });
 
-  // Filtre veya karıştırma değişirse turu yeniden hesapla
   ["priority-select", "view-select"].forEach(id => {
     const el = document.getElementById(id);
     if (el) {
@@ -3009,6 +2959,5 @@ const _detectedArrowIssues = auditCardArrows();
   });
 })();
 </script>
-
 </body>
 </html>
